@@ -38,7 +38,8 @@ class RateChanged extends Mailable
      */
     public function build()
     {
-        return $this->with([
+        return $this->view('emails.rate-changed-email')
+                    ->with([
                 'user'     => $this->user,
                 'currency' => $this->currency,
                 'new_rate' => $this->newRate,
