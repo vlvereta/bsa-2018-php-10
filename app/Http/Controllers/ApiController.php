@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use Gate;
-use App\Mail\RateChanged;
+use Queue;
+use App\User;
+use App\Entity\Currency;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
+use App\Jobs\SendRateChangedEmail;
 
 class ApiController extends Controller
 {
@@ -14,14 +16,18 @@ class ApiController extends Controller
         if (Gate::denies('admin')) {
             return redirect('/');
         }
-        $currency = \App\Entity\Currency::find($request->id);
+        $currency = Currency::find($request->id);
         $oldRate = $currency->rate;
         $currency->update(['rate' => $request->get('rate')]);
-        $users = \App\User::where('is_admin', false)->get();
-        foreach ($users as $user) {
-            $message = new RateChanged($user, $currency, $oldRate);
-            Mail::to($user)->send($message->build());
-        }
+        $this->sendNotification($currency, $oldRate);
         return json_encode($currency);
+    }
+
+    private function sendNotification(Currency $currency, float $oldRate) : void
+    {
+        $users = User::where('is_admin', false)->get();
+        foreach ($users as $user) {
+            Queue::pushOn('notification', new SendRateChangedEmail($user, $currency, $oldRate));
+        }
     }
 }
